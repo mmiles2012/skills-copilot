@@ -1,55 +1,32 @@
 //create web server
-//Comment so we have a new commit
-const http = require('http');
-const fs = require('fs');
-const url = require('url');
+const express = require('express');
+const app = express();
 const path = require('path');
-const comments = require('./comments');
-const querystring = require('querystring');
+const fs = require('fs');
+const bodyParser = require('body-parser');
 
-//create server
-http.createServer((req, res) => {
-    //parse the url
-    const urlObj = url.parse(req.url, true);
-    //get the pathname
-    const pathname = urlObj.pathname;
-    //get the query string
-    const query = urlObj.query;
-    //get the method
-    const method = req.method;
-    //get the root path
-    const root = path.resolve(__dirname, '.');
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
-    if (pathname === '/addComment' && method === 'POST') {
-        //add comment
-        let data = '';
-        req.on('data', (chunk) => {
-            data += chunk;
-        }).on('end', () => {
-            //parse the data
-            const comment = querystring.parse(data);
-            comments.addComment(comment);
-            res.end('success');
-        });
-    } else if (pathname === '/getComments' && method === 'GET') {
-        //get comments
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify(comments.getComments()));
-    } else {
-        //read the file
-        let filePath = path.join(root, pathname);
-        fs.readFile(filePath, (err, data) => {
-            if (err) {
-                res.writeHead(404, {
-                    'Content-Type': 'text/plain'
-                });
-                res.end('Not Found');
-            } else {
-                res.end(data);
-            }
-        });
-    }
-}).listen(3000, () => {
-    console.log('Server is running at http://');
-}
-);
+//set up the server
+app.listen(3000, () => {
+    console.log('Server is running on port 3000');
+});
+
+app.get('/comments', (req, res) => {
+    const comments = fs.readFileSync('./comments.json');
+    res.send(comments);
+});
+
+app.post('/comments', (req, res) => {
+    const comments = JSON.parse(fs.readFileSync('./comments.json'));
+    comments.push(req.body);
+    fs.writeFileSync('./comments.json', JSON.stringify(comments));
+    res.send('Comment added');
+});
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
